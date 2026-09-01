@@ -3,57 +3,616 @@
 
 <head>
 
-    <title>Account Owner Report</title>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Account Owner Activity Report</title>
+
+    <!-- Zoho CRM Widget SDK -->
+    <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
 
     <style>
 
         body {
-            font-family: Arial;
             margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f6f8;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #222;
+        }
+
+        .refresh-btn {
+            background: #1677ff;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .refresh-btn:hover {
+            background: #095dcc;
+        }
+
+        .cards {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 18px;
+            min-width: 170px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.10);
+        }
+
+        .card-title {
+            font-size: 13px;
+            color: #777;
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 26px;
+            font-weight: bold;
+            color: #222;
+        }
+
+        .report-container {
+            background: white;
             padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.10);
+        }
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
         }
 
         table {
-            border-collapse: collapse;
-            width: 100%;
-            font-size: 12px;
+            min-width: 1800px;
         }
 
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 6px;
+        .loading {
             text-align: center;
+            padding: 40px;
+            font-size: 16px;
+            color: #777;
         }
 
-        th {
-            background: #f5f5f5;
+        .error {
+            background: #ffe6e6;
+            color: #b00020;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
         }
 
-        .owner {
-            text-align: left;
-            font-weight: bold;
+        .last-updated {
+            font-size: 12px;
+            color: #777;
+            margin-top: 10px;
         }
 
     </style>
 
 </head>
 
+
 <body>
 
-<h2>Account Owner Activity Report</h2>
 
-<div id="report">
-    Loading...
-</div>
+    <!-- =========================================
+         HEADER
+         ========================================= -->
+
+    <div class="header">
+
+        <div class="title">
+            Account Owner Activity Report
+        </div>
+
+        <button
+            class="refresh-btn"
+            onclick="loadReport()">
+
+            Refresh Report
+
+        </button>
+
+    </div>
+
+
+    <!-- =========================================
+         SUMMARY CARDS
+         ========================================= -->
+
+    <div class="cards">
+
+        <div class="card">
+
+            <div class="card-title">
+                Total Accounts
+            </div>
+
+            <div
+                class="card-value"
+                id="totalAccounts">
+
+                -
+
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Accounts With Deal
+            </div>
+
+            <div
+                class="card-value"
+                id="accountsWithDeals">
+
+                -
+
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Accounts Without Deal
+            </div>
+
+            <div
+                class="card-value"
+                id="accountsWithoutDeals">
+
+                -
+
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Touched Accounts
+            </div>
+
+            <div
+                class="card-value"
+                id="touchedAccounts">
+
+                -
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================
+         REPORT
+         ========================================= -->
+
+    <div class="report-container">
+
+        <div
+            id="report"
+            class="loading">
+
+            Loading report...
+
+        </div>
+
+        <div
+            id="lastUpdated"
+            class="last-updated">
+
+        </div>
+
+    </div>
+
 
 <script>
 
-    // Get report data here
 
-    // Build HTML table here
+// =====================================================
+// INITIALIZE ZOHO WIDGET
+// =====================================================
+
+ZOHO.embeddedApp.on(
+    "PageLoad",
+    function(data) {
+
+        console.log("Zoho Widget Page Loaded");
+
+        console.log(data);
+
+        loadReport();
+
+    }
+);
+
+
+// =====================================================
+// INITIALIZE
+// =====================================================
+
+ZOHO.embeddedApp.init();
+
+
+// =====================================================
+// LOAD PYTHON REPORT
+// =====================================================
+
+function loadReport() {
+
+    document.getElementById(
+        "report"
+    ).innerHTML =
+
+        '<div class="loading">' +
+        'Loading report from Zoho CRM...' +
+        '</div>';
+
+
+    console.log(
+        "Calling Python Function: pythone_fun_test"
+    );
+
+
+    // =================================================
+    // CALL YOUR PYTHON FUNCTION
+    // =================================================
+
+    ZOHO.CRM.FUNCTIONS.execute(
+
+        "pythone_fun_test",
+
+        {}
+
+    )
+
+    .then(
+        function(response) {
+
+            console.log(
+                "Python Function Response:"
+            );
+
+            console.log(response);
+
+
+            processResponse(response);
+
+        }
+
+    )
+
+    .catch(
+        function(error) {
+
+            console.error(
+                "Python Function Error:"
+            );
+
+            console.error(error);
+
+
+            document.getElementById(
+                "report"
+            ).innerHTML =
+
+                '<div class="error">' +
+
+                '<b>Unable to load report.</b><br><br>' +
+
+                'Please check the Python Function ' +
+                'execution logs in Zoho CRM.<br><br>' +
+
+                '<b>Function:</b> pythone_fun_test<br><br>' +
+
+                'Error:<br>' +
+
+                JSON.stringify(
+                    error
+                ) +
+
+                '</div>';
+
+        }
+    );
+
+}
+
+
+// =====================================================
+// PROCESS FUNCTION RESPONSE
+// =====================================================
+
+function processResponse(response) {
+
+    console.log(
+        "Processing response..."
+    );
+
+
+    try {
+
+        var result = response;
+
+
+        // =================================================
+        // SOMETIMES ZOHO RETURNS RESULT INSIDE details
+        // =================================================
+
+        if (
+            response &&
+            response.details &&
+            response.details.output
+        ) {
+
+            result =
+                response.details.output;
+
+        }
+
+
+        // =================================================
+        // IF OUTPUT IS STRING
+        // =================================================
+
+        if (
+            typeof result === "string"
+        ) {
+
+            try {
+
+                result =
+                    JSON.parse(result);
+
+            }
+
+            catch(e) {
+
+                console.log(
+                    "Response is plain string"
+                );
+
+            }
+
+        }
+
+
+        // =================================================
+        // HANDLE NESTED OUTPUT
+        // =================================================
+
+        if (
+            result &&
+            result.output
+        ) {
+
+            var output =
+                result.output;
+
+
+            if (
+                typeof output === "string"
+            ) {
+
+                try {
+
+                    result =
+                        JSON.parse(output);
+
+                }
+
+                catch(e) {
+
+                    result =
+                        output;
+
+                }
+
+            }
+
+            else {
+
+                result =
+                    output;
+
+            }
+
+        }
+
+
+        console.log(
+            "Final Result:"
+        );
+
+        console.log(result);
+
+
+        // =================================================
+        // DISPLAY REPORT
+        // =================================================
+
+        displayReport(result);
+
+
+    }
+
+    catch(error) {
+
+        console.error(error);
+
+
+        document.getElementById(
+            "report"
+        ).innerHTML =
+
+            '<div class="error">' +
+
+            '<b>Error processing report.</b><br><br>' +
+
+            error.message +
+
+            '</div>';
+
+    }
+
+}
+
+
+// =====================================================
+// DISPLAY REPORT
+// =====================================================
+
+function displayReport(data) {
+
+    console.log(
+        "Displaying report:"
+    );
+
+    console.log(data);
+
+
+    // =================================================
+    // SUMMARY CARDS
+    // =================================================
+
+    if (
+        data.total_accounts !== undefined
+    ) {
+
+        document.getElementById(
+            "totalAccounts"
+        ).innerText =
+            data.total_accounts;
+
+    }
+
+
+    if (
+        data.accounts_with_deals !== undefined
+    ) {
+
+        document.getElementById(
+            "accountsWithDeals"
+        ).innerText =
+            data.accounts_with_deals;
+
+    }
+
+
+    if (
+        data.accounts_without_deals !== undefined
+    ) {
+
+        document.getElementById(
+            "accountsWithoutDeals"
+        ).innerText =
+            data.accounts_without_deals;
+
+    }
+
+
+    if (
+        data.touched_accounts !== undefined
+    ) {
+
+        document.getElementById(
+            "touchedAccounts"
+        ).innerText =
+            data.touched_accounts;
+
+    }
+
+
+    // =================================================
+    // DISPLAY PYTHON GENERATED HTML TABLE
+    // =================================================
+
+    if (
+        data.table
+    ) {
+
+        document.getElementById(
+            "report"
+        ).innerHTML =
+
+            '<div class="table-wrapper">' +
+
+            data.table +
+
+            '</div>';
+
+    }
+
+    else {
+
+        document.getElementById(
+            "report"
+        ).innerHTML =
+
+            '<div class="error">' +
+
+            'Python Function executed successfully, ' +
+            'but no table was returned.' +
+
+            '</div>';
+
+    }
+
+
+    // =================================================
+    // LAST UPDATED
+    // =================================================
+
+    var now =
+        new Date();
+
+    document.getElementById(
+        "lastUpdated"
+    ).innerText =
+
+        "Last Updated: " +
+        now.toLocaleString();
+
+}
+
 
 </script>
+
 
 </body>
 
