@@ -349,7 +349,9 @@ function loadReport() {
 
     ZOHO.CRM.FUNCTIONS.execute(
         "pythone_fun_test",
-        {}
+        {
+        arguments: JSON.stringify({})
+    }
     )
 
     .then(function(response) {
