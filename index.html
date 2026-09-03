@@ -1,119 +1,157 @@
 <!DOCTYPE html>
 <html>
-
 <head>
 
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+<title>Account Owner Activity Report</title>
 
-    <title>Account Owner Activity Report</title>
+<script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
 
-    <!-- Zoho CRM Widget SDK -->
-    <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
+<style>
 
-    <style>
+body {
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    background: #f5f6f8;
+    color: #222;
+}
 
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, sans-serif;
-            background: #f5f6f8;
-        }
+/* HEADER */
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
 
-        .title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #222;
-        }
+.title {
+    font-size: 24px;
+    font-weight: bold;
+}
 
-        .refresh-btn {
-            background: #1677ff;
-            color: white;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
+.refresh-btn {
+    background: #1677ff;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
 
-        .refresh-btn:hover {
-            background: #095dcc;
-        }
+.refresh-btn:hover {
+    background: #095dcc;
+}
 
-        .cards {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
+.refresh-btn:disabled {
+    background: #999;
+    cursor: not-allowed;
+}
 
-        .card {
-            background: white;
-            border-radius: 8px;
-            padding: 18px;
-            min-width: 170px;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.10);
-        }
 
-        .card-title {
-            font-size: 13px;
-            color: #777;
-            margin-bottom: 8px;
-        }
+/* SUMMARY CARDS */
 
-        .card-value {
-            font-size: 26px;
-            font-weight: bold;
-            color: #222;
-        }
+.cards {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
 
-        .report-container {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.10);
-        }
+.card {
+    background: white;
+    border-radius: 8px;
+    padding: 18px;
+    min-width: 170px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.10);
+}
 
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto;
-        }
+.card-title {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 8px;
+}
 
-        table {
-            min-width: 1800px;
-        }
+.card-value {
+    font-size: 26px;
+    font-weight: bold;
+}
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 16px;
-            color: #777;
-        }
 
-        .error {
-            background: #ffe6e6;
-            color: #b00020;
-            padding: 15px;
-            border-radius: 6px;
-            margin-top: 20px;
-        }
+/* REPORT */
 
-        .last-updated {
-            font-size: 12px;
-            color: #777;
-            margin-top: 10px;
-        }
+.report-container {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.10);
+}
 
-    </style>
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 650px;
+}
+
+
+/* PYTHON TABLE */
+
+.table-wrapper table {
+    min-width: 2200px;
+    border-collapse: collapse;
+}
+
+.table-wrapper th,
+.table-wrapper td {
+    white-space: nowrap;
+}
+
+.table-wrapper th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.table-wrapper td {
+    padding: 7px;
+}
+
+
+/* LOADING */
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    font-size: 16px;
+    color: #777;
+}
+
+
+/* ERROR */
+
+.error {
+    background: #ffe6e6;
+    color: #b00020;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 20px;
+}
+
+
+/* LAST UPDATED */
+
+.last-updated {
+    font-size: 12px;
+    color: #777;
+    margin-top: 10px;
+}
+
+</style>
 
 </head>
 
@@ -121,248 +159,265 @@
 <body>
 
 
-    <!-- =========================================
-         HEADER
-         ========================================= -->
+<!-- HEADER -->
 
-    <div class="header">
+<div class="header">
 
-        <div class="title">
-            Account Owner Activity Report
-        </div>
-
-        <button
-            class="refresh-btn"
-            onclick="loadReport()">
-
-            Refresh Report
-
-        </button>
-
+    <div class="title">
+        Account Owner Activity Report
     </div>
 
+    <button
+        id="refreshButton"
+        class="refresh-btn"
+        onclick="loadReport()">
 
-    <!-- =========================================
-         SUMMARY CARDS
-         ========================================= -->
+        Refresh Report
 
-    <div class="cards">
+    </button>
 
-        <div class="card">
-
-            <div class="card-title">
-                Total Accounts
-            </div>
-
-            <div
-                class="card-value"
-                id="totalAccounts">
-
-                -
-
-            </div>
-
-        </div>
+</div>
 
 
-        <div class="card">
 
-            <div class="card-title">
-                Accounts With Deal
-            </div>
+<!-- SUMMARY CARDS -->
 
-            <div
-                class="card-value"
-                id="accountsWithDeals">
+<div class="cards">
 
-                -
+    <div class="card">
 
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Accounts Without Deal
-            </div>
-
-            <div
-                class="card-value"
-                id="accountsWithoutDeals">
-
-                -
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Touched Accounts
-            </div>
-
-            <div
-                class="card-value"
-                id="touchedAccounts">
-
-                -
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- =========================================
-         REPORT
-         ========================================= -->
-
-    <div class="report-container">
-
-        <div
-            id="report"
-            class="loading">
-
-            Loading report...
-
+        <div class="card-title">
+            Total Accounts
         </div>
 
         <div
-            id="lastUpdated"
-            class="last-updated">
+            class="card-value"
+            id="totalAccounts">
+
+            -
 
         </div>
 
     </div>
+
+
+
+    <div class="card">
+
+        <div class="card-title">
+            Accounts With Deal
+        </div>
+
+        <div
+            class="card-value"
+            id="accountsWithDeals">
+
+            -
+
+        </div>
+
+    </div>
+
+
+
+    <div class="card">
+
+        <div class="card-title">
+            Accounts Without Deal
+        </div>
+
+        <div
+            class="card-value"
+            id="accountsWithoutDeals">
+
+            -
+
+        </div>
+
+    </div>
+
+
+
+    <div class="card">
+
+        <div class="card-title">
+            Touched Accounts
+        </div>
+
+        <div
+            class="card-value"
+            id="touchedAccounts">
+
+            -
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- REPORT -->
+
+<div class="report-container">
+
+    <div
+        id="report"
+        class="loading">
+
+        Loading report...
+
+    </div>
+
+    <div
+        id="lastUpdated"
+        class="last-updated">
+
+    </div>
+
+</div>
+
 
 
 <script>
 
 
-// =====================================================
-// INITIALIZE ZOHO WIDGET
-// =====================================================
+/* =====================================================
+   ZOHO PAGE LOAD
+   ===================================================== */
 
-ZOHO.embeddedApp.on(
-    "PageLoad",
-    function(data) {
+ZOHO.embeddedApp.on("PageLoad", function(data) {
 
-        console.log("Zoho Widget Page Loaded");
+    console.log("=================================");
+    console.log("ZOHO WIDGET LOADED");
+    console.log("=================================");
 
-        console.log(data);
+    console.log("Page Data:");
+    console.log(data);
 
-        loadReport();
+    loadReport();
 
-    }
-);
+});
 
 
-// =====================================================
-// INITIALIZE
-// =====================================================
+/* =====================================================
+   INITIALIZE ZOHO WIDGET
+   ===================================================== */
 
 ZOHO.embeddedApp.init();
 
 
-// =====================================================
-// LOAD PYTHON REPORT
-// =====================================================
+
+/* =====================================================
+   LOAD PYTHON REPORT
+   ===================================================== */
 
 function loadReport() {
 
-    document.getElementById(
-        "report"
-    ).innerHTML =
+    var button =
+        document.getElementById("refreshButton");
 
+    var report =
+        document.getElementById("report");
+
+
+    /* Disable refresh button */
+
+    button.disabled = true;
+
+    button.innerText = "Loading...";
+
+
+    /* Loading message */
+
+    report.innerHTML =
         '<div class="loading">' +
         'Loading report from Zoho CRM...' +
         '</div>';
 
 
-    console.log(
-        "Calling Python Function: pythone_fun_test"
-    );
+    console.log("=================================");
+    console.log("CALLING PYTHON FUNCTION");
+    console.log("Function: pythone_fun_test");
+    console.log("=================================");
 
 
-    // =================================================
-    // CALL YOUR PYTHON FUNCTION
-    // =================================================
+    /*
+       CALL PYTHON FUNCTION
+    */
 
     ZOHO.CRM.FUNCTIONS.execute(
-
         "pythone_fun_test",
-
         {}
-
     )
 
-    .then(
-        function(response) {
+    .then(function(response) {
 
-            console.log(
-                "Python Function Response:"
-            );
+        console.log("=================================");
+        console.log("FULL PYTHON FUNCTION RESPONSE");
+        console.log("=================================");
 
-            console.log(response);
-
-
-            processResponse(response);
-
-        }
-
-    )
-
-    .catch(
-        function(error) {
-
-            console.error(
-                "Python Function Error:"
-            );
-
-            console.error(error);
+        console.log(response);
 
 
-            document.getElementById(
-                "report"
-            ).innerHTML =
+        processResponse(response);
 
-                '<div class="error">' +
+    })
 
-                '<b>Unable to load report.</b><br><br>' +
 
-                'Please check the Python Function ' +
-                'execution logs in Zoho CRM.<br><br>' +
+    .catch(function(error) {
 
-                '<b>Function:</b> pythone_fun_test<br><br>' +
+        console.error("=================================");
+        console.error("PYTHON FUNCTION ERROR");
+        console.error("=================================");
 
-                'Error:<br>' +
+        console.error(error);
 
-                JSON.stringify(
-                    error
-                ) +
 
-                '</div>';
+        report.innerHTML =
+            '<div class="error">' +
 
-        }
-    );
+            '<b>Unable to load report.</b>' +
+
+            '<br><br>' +
+
+            '<b>Python Function:</b> ' +
+            'pythone_fun_test' +
+
+            '<br><br>' +
+
+            '<b>Error:</b><br>' +
+
+            JSON.stringify(error) +
+
+            '</div>';
+
+
+    })
+
+
+    .finally(function() {
+
+        button.disabled = false;
+
+        button.innerText = "Refresh Report";
+
+    });
 
 }
 
 
-// =====================================================
-// PROCESS FUNCTION RESPONSE
-// =====================================================
+
+/* =====================================================
+   PROCESS PYTHON RESPONSE
+   ===================================================== */
 
 function processResponse(response) {
 
-    console.log(
-        "Processing response..."
-    );
+    console.log("=================================");
+    console.log("PROCESSING RESPONSE");
+    console.log("=================================");
 
 
     try {
@@ -370,9 +425,13 @@ function processResponse(response) {
         var result = response;
 
 
-        // =================================================
-        // SOMETIMES ZOHO RETURNS RESULT INSIDE details
-        // =================================================
+        /*
+           CASE 1
+
+           Zoho returns:
+
+           response.details.output
+        */
 
         if (
             response &&
@@ -380,31 +439,52 @@ function processResponse(response) {
             response.details.output
         ) {
 
+            console.log(
+                "Found response.details.output"
+            );
+
             result =
                 response.details.output;
 
         }
 
 
-        // =================================================
-        // IF OUTPUT IS STRING
-        // =================================================
+        console.log("RAW RESULT:");
 
-        if (
-            typeof result === "string"
-        ) {
+        console.log(result);
+
+        console.log(
+            "RAW RESULT TYPE:",
+            typeof result
+        );
+
+
+        /*
+           CASE 2
+
+           Output is JSON string
+        */
+
+        if (typeof result === "string") {
+
+            result = result.trim();
+
 
             try {
 
                 result =
                     JSON.parse(result);
 
+                console.log(
+                    "JSON successfully parsed"
+                );
+
             }
 
-            catch(e) {
+            catch (e) {
 
                 console.log(
-                    "Response is plain string"
+                    "JSON parsing failed"
                 );
 
             }
@@ -412,34 +492,41 @@ function processResponse(response) {
         }
 
 
-        // =================================================
-        // HANDLE NESTED OUTPUT
-        // =================================================
+        /*
+           CASE 3
+
+           Sometimes another output property exists
+        */
 
         if (
             result &&
             result.output
         ) {
 
-            var output =
+            console.log(
+                "Found nested output"
+            );
+
+
+            var nestedOutput =
                 result.output;
 
 
             if (
-                typeof output === "string"
+                typeof nestedOutput === "string"
             ) {
 
                 try {
 
                     result =
-                        JSON.parse(output);
+                        JSON.parse(nestedOutput);
 
                 }
 
-                catch(e) {
+                catch (e) {
 
                     result =
-                        output;
+                        nestedOutput;
 
                 }
 
@@ -448,23 +535,39 @@ function processResponse(response) {
             else {
 
                 result =
-                    output;
+                    nestedOutput;
 
             }
 
         }
 
 
-        console.log(
-            "Final Result:"
-        );
+        console.log("=================================");
+        console.log("FINAL RESULT");
+        console.log("=================================");
 
         console.log(result);
 
 
-        // =================================================
-        // DISPLAY REPORT
-        // =================================================
+        /*
+           Validate response
+        */
+
+        if (
+            !result ||
+            typeof result !== "object"
+        ) {
+
+            throw new Error(
+                "Python function did not return a valid JSON object."
+            );
+
+        }
+
+
+        /*
+           Display report
+        */
 
         displayReport(result);
 
@@ -473,7 +576,10 @@ function processResponse(response) {
 
     catch(error) {
 
-        console.error(error);
+        console.error(
+            "RESPONSE PROCESSING ERROR:",
+            error
+        );
 
 
         document.getElementById(
@@ -482,7 +588,9 @@ function processResponse(response) {
 
             '<div class="error">' +
 
-            '<b>Error processing report.</b><br><br>' +
+            '<b>Error processing report.</b>' +
+
+            '<br><br>' +
 
             error.message +
 
@@ -493,22 +601,23 @@ function processResponse(response) {
 }
 
 
-// =====================================================
-// DISPLAY REPORT
-// =====================================================
+
+/* =====================================================
+   DISPLAY REPORT
+   ===================================================== */
 
 function displayReport(data) {
 
-    console.log(
-        "Displaying report:"
-    );
+    console.log("=================================");
+    console.log("DISPLAYING REPORT");
+    console.log("=================================");
 
     console.log(data);
 
 
-    // =================================================
-    // SUMMARY CARDS
-    // =================================================
+    /*
+       TOTAL ACCOUNTS
+    */
 
     if (
         data.total_accounts !== undefined
@@ -522,6 +631,10 @@ function displayReport(data) {
     }
 
 
+    /*
+       ACCOUNTS WITH DEAL
+    */
+
     if (
         data.accounts_with_deals !== undefined
     ) {
@@ -533,6 +646,10 @@ function displayReport(data) {
 
     }
 
+
+    /*
+       ACCOUNTS WITHOUT DEAL
+    */
 
     if (
         data.accounts_without_deals !== undefined
@@ -546,6 +663,10 @@ function displayReport(data) {
     }
 
 
+    /*
+       TOUCHED ACCOUNTS
+    */
+
     if (
         data.touched_accounts !== undefined
     ) {
@@ -558,13 +679,32 @@ function displayReport(data) {
     }
 
 
-    // =================================================
-    // DISPLAY PYTHON GENERATED HTML TABLE
-    // =================================================
+    /*
+       DISPLAY HTML TABLE
+    */
 
     if (
-        data.table
+        data.table &&
+        typeof data.table === "string" &&
+        data.table.trim().length > 0
     ) {
+
+        console.log(
+            "================================="
+        );
+
+        console.log(
+            "TABLE FOUND"
+        );
+
+        console.log(
+            "Rendering Python HTML table..."
+        );
+
+        console.log(
+            "================================="
+        );
+
 
         document.getElementById(
             "report"
@@ -578,7 +718,25 @@ function displayReport(data) {
 
     }
 
+
+    /*
+       TABLE NOT FOUND
+    */
+
     else {
+
+        console.error(
+            "TABLE NOT FOUND"
+        );
+
+        console.log(
+            "Available response keys:"
+        );
+
+        console.log(
+            Object.keys(data)
+        );
+
 
         document.getElementById(
             "report"
@@ -586,33 +744,40 @@ function displayReport(data) {
 
             '<div class="error">' +
 
-            'Python Function executed successfully, ' +
-            'but no table was returned.' +
+            '<b>Python function executed successfully, ' +
+            'but no table was returned.</b>' +
+
+            '<br><br>' +
+
+            'Available fields: ' +
+
+            Object.keys(data).join(", ") +
 
             '</div>';
 
     }
 
 
-    // =================================================
-    // LAST UPDATED
-    // =================================================
+    /*
+       LAST UPDATED
+    */
 
     var now =
         new Date();
+
 
     document.getElementById(
         "lastUpdated"
     ).innerText =
 
         "Last Updated: " +
+
         now.toLocaleString();
 
 }
 
 
 </script>
-
 
 </body>
 
