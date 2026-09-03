@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
 <title>Account Owner Activity Report</title>
 
@@ -18,8 +21,6 @@ body {
     background: #f5f6f8;
     color: #222;
 }
-
-/* HEADER */
 
 .header {
     display: flex;
@@ -52,9 +53,6 @@ body {
     cursor: not-allowed;
 }
 
-
-/* SUMMARY CARDS */
-
 .cards {
     display: flex;
     gap: 15px;
@@ -81,9 +79,6 @@ body {
     font-weight: bold;
 }
 
-
-/* REPORT */
-
 .report-container {
     background: white;
     padding: 15px;
@@ -97,9 +92,6 @@ body {
     overflow-y: auto;
     max-height: 650px;
 }
-
-
-/* PYTHON TABLE */
 
 .table-wrapper table {
     min-width: 2200px;
@@ -117,22 +109,12 @@ body {
     z-index: 2;
 }
 
-.table-wrapper td {
-    padding: 7px;
-}
-
-
-/* LOADING */
-
 .loading {
     text-align: center;
     padding: 40px;
     font-size: 16px;
     color: #777;
 }
-
-
-/* ERROR */
 
 .error {
     background: #ffe6e6;
@@ -141,9 +123,6 @@ body {
     border-radius: 6px;
     margin-top: 20px;
 }
-
-
-/* LAST UPDATED */
 
 .last-updated {
     font-size: 12px;
@@ -158,8 +137,6 @@ body {
 
 <body>
 
-
-<!-- HEADER -->
 
 <div class="header">
 
@@ -180,8 +157,6 @@ body {
 
 
 
-<!-- SUMMARY CARDS -->
-
 <div class="cards">
 
     <div class="card">
@@ -201,7 +176,6 @@ body {
     </div>
 
 
-
     <div class="card">
 
         <div class="card-title">
@@ -219,7 +193,6 @@ body {
     </div>
 
 
-
     <div class="card">
 
         <div class="card-title">
@@ -235,7 +208,6 @@ body {
         </div>
 
     </div>
-
 
 
     <div class="card">
@@ -257,8 +229,6 @@ body {
 </div>
 
 
-
-<!-- REPORT -->
 
 <div class="report-container">
 
@@ -284,16 +254,13 @@ body {
 
 
 /* =====================================================
-   ZOHO PAGE LOAD
+   PAGE LOAD
    ===================================================== */
 
 ZOHO.embeddedApp.on("PageLoad", function(data) {
 
-    console.log("=================================");
-    console.log("ZOHO WIDGET LOADED");
-    console.log("=================================");
+    console.log("ZOHO WIDGET PAGE LOADED");
 
-    console.log("Page Data:");
     console.log(data);
 
     loadReport();
@@ -301,16 +268,12 @@ ZOHO.embeddedApp.on("PageLoad", function(data) {
 });
 
 
-/* =====================================================
-   INITIALIZE ZOHO WIDGET
-   ===================================================== */
-
 ZOHO.embeddedApp.init();
 
 
 
 /* =====================================================
-   LOAD PYTHON REPORT
+   LOAD REPORT
    ===================================================== */
 
 function loadReport() {
@@ -322,14 +285,10 @@ function loadReport() {
         document.getElementById("report");
 
 
-    /* Disable refresh button */
-
     button.disabled = true;
 
     button.innerText = "Loading...";
 
-
-    /* Loading message */
 
     report.innerHTML =
         '<div class="loading">' +
@@ -337,28 +296,42 @@ function loadReport() {
         '</div>';
 
 
-    console.log("=================================");
-    console.log("CALLING PYTHON FUNCTION");
-    console.log("Function: pythone_fun_test");
-    console.log("=================================");
+    console.log(
+        "Calling Python Function: pythone_fun_test"
+    );
 
 
     /*
-       CALL PYTHON FUNCTION
+       IMPORTANT:
+       Zoho expects arguments in req_data
     */
+
+    var req_data = {
+
+        "arguments": JSON.stringify({})
+
+    };
+
 
     ZOHO.CRM.FUNCTIONS.execute(
         "pythone_fun_test",
-        {
-        arguments: JSON.stringify({})
-    }
+        req_data
     )
+
 
     .then(function(response) {
 
-        console.log("=================================");
-        console.log("FULL PYTHON FUNCTION RESPONSE");
-        console.log("=================================");
+        console.log(
+            "=============================="
+        );
+
+        console.log(
+            "FULL ZOHO FUNCTION RESPONSE"
+        );
+
+        console.log(
+            "=============================="
+        );
 
         console.log(response);
 
@@ -370,31 +343,24 @@ function loadReport() {
 
     .catch(function(error) {
 
-        console.error("=================================");
-        console.error("PYTHON FUNCTION ERROR");
-        console.error("=================================");
+        console.error(
+            "PYTHON FUNCTION ERROR"
+        );
 
         console.error(error);
 
 
         report.innerHTML =
+
             '<div class="error">' +
 
-            '<b>Unable to load report.</b>' +
+            '<b>Unable to load Python report.</b>' +
 
             '<br><br>' +
-
-            '<b>Python Function:</b> ' +
-            'pythone_fun_test' +
-
-            '<br><br>' +
-
-            '<b>Error:</b><br>' +
 
             JSON.stringify(error) +
 
             '</div>';
-
 
     })
 
@@ -403,7 +369,8 @@ function loadReport() {
 
         button.disabled = false;
 
-        button.innerText = "Refresh Report";
+        button.innerText =
+            "Refresh Report";
 
     });
 
@@ -412,123 +379,161 @@ function loadReport() {
 
 
 /* =====================================================
-   PROCESS PYTHON RESPONSE
+   PROCESS RESPONSE
    ===================================================== */
 
 function processResponse(response) {
 
-    console.log("=================================");
-    console.log("PROCESSING RESPONSE");
-    console.log("=================================");
+    console.log(
+        "=============================="
+    );
+
+    console.log(
+        "PROCESSING FUNCTION RESPONSE"
+    );
+
+    console.log(
+        "=============================="
+    );
 
 
     try {
 
-        var result = response;
-
-
         /*
-           CASE 1
+           STEP 1
 
-           Zoho returns:
-
-           response.details.output
+           Get details.output
         */
+
+        var output = null;
+
 
         if (
             response &&
             response.details &&
-            response.details.output
+            response.details.output !== undefined
         ) {
 
-            console.log(
-                "Found response.details.output"
-            );
-
-            result =
+            output =
                 response.details.output;
 
         }
 
 
-        console.log("RAW RESULT:");
+        console.log(
+            "details.output:"
+        );
 
-        console.log(result);
+        console.log(output);
+
 
         console.log(
-            "RAW RESULT TYPE:",
-            typeof result
+            "details.output TYPE:"
         );
+
+        console.log(typeof output);
+
 
 
         /*
-           CASE 2
+           STEP 2
 
-           Output is JSON string
+           Convert output to JSON object
         */
 
-        if (typeof result === "string") {
+        var data;
 
-            result = result.trim();
+
+        if (typeof output === "string") {
+
+            /*
+               Remove unnecessary whitespace
+            */
+
+            output =
+                output.trim();
+
+
+            console.log(
+                "Parsing output JSON..."
+            );
 
 
             try {
 
-                result =
-                    JSON.parse(result);
-
-                console.log(
-                    "JSON successfully parsed"
-                );
+                data =
+                    JSON.parse(output);
 
             }
 
-            catch (e) {
+            catch(error) {
+
+                console.error(
+                    "JSON PARSE ERROR"
+                );
+
+                console.error(error);
 
                 console.log(
-                    "JSON parsing failed"
+                    "Raw output:"
+                );
+
+                console.log(output);
+
+
+                throw new Error(
+                    "Zoho returned text, but it is not valid JSON."
                 );
 
             }
 
         }
 
+        else {
+
+            data = output;
+
+        }
+
+
 
         /*
-           CASE 3
+           STEP 3
 
-           Sometimes another output property exists
+           Some Zoho responses may contain
+           another output property
         */
 
         if (
-            result &&
-            result.output
+            data &&
+            data.output !== undefined
         ) {
 
             console.log(
-                "Found nested output"
+                "Nested output detected"
             );
 
 
-            var nestedOutput =
-                result.output;
+            var nested =
+                data.output;
 
 
             if (
-                typeof nestedOutput === "string"
+                typeof nested === "string"
             ) {
 
                 try {
 
-                    result =
-                        JSON.parse(nestedOutput);
+                    data =
+                        JSON.parse(nested);
 
                 }
 
-                catch (e) {
+                catch(e) {
 
-                    result =
-                        nestedOutput;
+                    console.log(
+                        "Nested output is not JSON"
+                    );
 
                 }
 
@@ -536,52 +541,92 @@ function processResponse(response) {
 
             else {
 
-                result =
-                    nestedOutput;
+                data =
+                    nested;
 
             }
 
         }
 
 
-        console.log("=================================");
-        console.log("FINAL RESULT");
-        console.log("=================================");
-
-        console.log(result);
-
 
         /*
-           Validate response
+           STEP 4
+
+           Final data validation
         */
 
+        console.log(
+            "=============================="
+        );
+
+        console.log(
+            "FINAL DATA OBJECT"
+        );
+
+        console.log(
+            "=============================="
+        );
+
+        console.log(data);
+
+
         if (
-            !result ||
-            typeof result !== "object"
+            !data ||
+            typeof data !== "object"
         ) {
 
             throw new Error(
-                "Python function did not return a valid JSON object."
+                "No valid data received from Python function."
             );
 
         }
 
 
+
         /*
+           STEP 5
+
+           Check table
+        */
+
+        console.log(
+            "TABLE VALUE:"
+        );
+
+        console.log(
+            data.table
+        );
+
+
+        console.log(
+            "TABLE TYPE:"
+        );
+
+        console.log(
+            typeof data.table
+        );
+
+
+
+        /*
+           STEP 6
+
            Display report
         */
 
-        displayReport(result);
-
+        displayReport(data);
 
     }
+
 
     catch(error) {
 
         console.error(
-            "RESPONSE PROCESSING ERROR:",
-            error
+            "PROCESSING ERROR:"
         );
+
+        console.error(error);
 
 
         document.getElementById(
@@ -590,7 +635,7 @@ function processResponse(response) {
 
             '<div class="error">' +
 
-            '<b>Error processing report.</b>' +
+            '<b>Error processing Python response.</b>' +
 
             '<br><br>' +
 
@@ -610,101 +655,89 @@ function processResponse(response) {
 
 function displayReport(data) {
 
-    console.log("=================================");
-    console.log("DISPLAYING REPORT");
-    console.log("=================================");
 
-    console.log(data);
+    console.log(
+        "DISPLAYING FINAL REPORT"
+    );
 
 
     /*
        TOTAL ACCOUNTS
     */
 
-    if (
+    document.getElementById(
+        "totalAccounts"
+    ).innerText =
+
         data.total_accounts !== undefined
-    ) {
 
-        document.getElementById(
-            "totalAccounts"
-        ).innerText =
-            data.total_accounts;
+        ? data.total_accounts
 
-    }
+        : "-";
+
 
 
     /*
        ACCOUNTS WITH DEAL
     */
 
-    if (
+    document.getElementById(
+        "accountsWithDeals"
+    ).innerText =
+
         data.accounts_with_deals !== undefined
-    ) {
 
-        document.getElementById(
-            "accountsWithDeals"
-        ).innerText =
-            data.accounts_with_deals;
+        ? data.accounts_with_deals
 
-    }
+        : "-";
+
 
 
     /*
        ACCOUNTS WITHOUT DEAL
     */
 
-    if (
+    document.getElementById(
+        "accountsWithoutDeals"
+    ).innerText =
+
         data.accounts_without_deals !== undefined
-    ) {
 
-        document.getElementById(
-            "accountsWithoutDeals"
-        ).innerText =
-            data.accounts_without_deals;
+        ? data.accounts_without_deals
 
-    }
+        : "-";
+
 
 
     /*
        TOUCHED ACCOUNTS
     */
 
-    if (
+    document.getElementById(
+        "touchedAccounts"
+    ).innerText =
+
         data.touched_accounts !== undefined
-    ) {
 
-        document.getElementById(
-            "touchedAccounts"
-        ).innerText =
-            data.touched_accounts;
+        ? data.touched_accounts
 
-    }
+        : "-";
+
 
 
     /*
-       DISPLAY HTML TABLE
+       TABLE
     */
 
     if (
         data.table &&
         typeof data.table === "string" &&
-        data.table.trim().length > 0
+        data.table.trim() !== ""
     ) {
 
-        console.log(
-            "================================="
-        );
 
         console.log(
-            "TABLE FOUND"
-        );
-
-        console.log(
-            "Rendering Python HTML table..."
-        );
-
-        console.log(
-            "================================="
+            "TABLE FOUND - RENDERING"
         );
 
 
@@ -718,25 +751,14 @@ function displayReport(data) {
 
             '</div>';
 
+
     }
-
-
-    /*
-       TABLE NOT FOUND
-    */
 
     else {
 
+
         console.error(
             "TABLE NOT FOUND"
-        );
-
-        console.log(
-            "Available response keys:"
-        );
-
-        console.log(
-            Object.keys(data)
         );
 
 
@@ -747,7 +769,7 @@ function displayReport(data) {
             '<div class="error">' +
 
             '<b>Python function executed successfully, ' +
-            'but no table was returned.</b>' +
+            'but table data is missing.</b>' +
 
             '<br><br>' +
 
@@ -758,6 +780,7 @@ function displayReport(data) {
             '</div>';
 
     }
+
 
 
     /*
