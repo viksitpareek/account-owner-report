@@ -598,123 +598,244 @@ function loadReport() {
 
 function processResponse(response) {
 
+    console.log("======================================");
+    console.log("PROCESSING RESPONSE");
+    console.log("======================================");
+
+    console.log("FULL RESPONSE:");
+    console.log(response);
+
+
+    /*
+       -------------------------------------------------------
+       Find the Python output anywhere inside the
+       Zoho response object.
+       -------------------------------------------------------
+    */
+
+    function findPythonOutput(obj, path, depth) {
+
+        if (depth > 10) {
+            return null;
+        }
+
+        if (
+            obj === null ||
+            obj === undefined
+        ) {
+            return null;
+        }
+
+
+        /*
+           If this is a string, check whether it
+           contains our Python JSON output.
+        */
+
+        if (typeof obj === "string") {
+
+            var text = obj.trim();
+
+            /*
+               Direct JSON string
+            */
+
+            try {
+
+                var parsed =
+                    JSON.parse(text);
+
+                var result =
+                    findPythonOutput(
+                        parsed,
+                        path + " [parsed]",
+                        depth + 1
+                    );
+
+                if (result) {
+                    return result;
+                }
+
+            }
+            catch (e) {
+                // Not JSON - continue
+            }
+
+
+            /*
+               Direct HTML table
+            */
+
+            if (
+                text.indexOf("<table") !== -1 ||
+                text.indexOf("report-table") !== -1
+            ) {
+
+                return {
+                    table: text,
+                    source: path
+                };
+
+            }
+
+
+            return null;
+        }
+
+
+        /*
+           Object
+        */
+
+        if (
+            typeof obj === "object"
+        ) {
+
+            /*
+               FIRST PRIORITY:
+               Look for "table"
+            */
+
+            if (
+                typeof obj.table === "string" &&
+                obj.table.length > 0
+            ) {
+
+                return {
+                    data: obj,
+                    source: path + ".table"
+                };
+
+            }
+
+
+            /*
+               Check known Zoho locations first
+            */
+
+            var priorityKeys = [
+                "output",
+                "details",
+                "result",
+                "response",
+                "data"
+            ];
+
+
+            for (
+                var i = 0;
+                i < priorityKeys.length;
+                i++
+            ) {
+
+                var key =
+                    priorityKeys[i];
+
+
+                if (
+                    obj[key] !== undefined &&
+                    obj[key] !== null
+                ) {
+
+                    var found =
+                        findPythonOutput(
+                            obj[key],
+                            path + "." + key,
+                            depth + 1
+                        );
+
+                    if (found) {
+                        return found;
+                    }
+
+                }
+
+            }
+
+
+            /*
+               Finally search every property
+            */
+
+            var keys =
+                Object.keys(obj);
+
+
+            for (
+                var j = 0;
+                j < keys.length;
+                j++
+            ) {
+
+                var currentKey =
+                    keys[j];
+
+
+                /*
+                   Skip keys already checked
+                */
+
+                if (
+                    priorityKeys.indexOf(
+                        currentKey
+                    ) !== -1
+                ) {
+                    continue;
+                }
+
+
+                var result =
+                    findPythonOutput(
+                        obj[currentKey],
+                        path + "." + currentKey,
+                        depth + 1
+                    );
+
+
+                if (result) {
+                    return result;
+                }
+
+            }
+
+        }
+
+
+        return null;
+    }
+
+
+    /*
+       -------------------------------------------------------
+       SEARCH FOR PYTHON OUTPUT
+       -------------------------------------------------------
+    */
+
+    var found =
+        findPythonOutput(
+            response,
+            "response",
+            0
+        );
+
+
     console.log(
-        "======================================"
+        "PYTHON OUTPUT SEARCH RESULT:"
     );
 
-    console.log(
-        "PROCESSING RESPONSE"
-    );
-
-    console.log(
-        "======================================"
-    );
-
-
-    var data = null;
+    console.log(found);
 
 
     /*
        -------------------------------------------------------
-       CASE 1
-       response.details.output
+       NOTHING FOUND
        -------------------------------------------------------
     */
 
-    if (
-        response &&
-        response.details &&
-        response.details.output !== undefined &&
-        response.details.output !== null
-    ) {
-
-        console.log(
-            "Found output at: response.details.output"
-        );
-
-        data =
-            response.details.output;
-
-    }
-
-
-    /*
-       -------------------------------------------------------
-       CASE 2
-       response.output
-       -------------------------------------------------------
-    */
-
-    else if (
-        response &&
-        response.output !== undefined &&
-        response.output !== null
-    ) {
-
-        console.log(
-            "Found output at: response.output"
-        );
-
-        data =
-            response.output;
-
-    }
-
-
-    /*
-       -------------------------------------------------------
-       CASE 3
-       response.details
-       -------------------------------------------------------
-    */
-
-    else if (
-        response &&
-        response.details
-    ) {
-
-        console.log(
-            "Found data at: response.details"
-        );
-
-        data =
-            response.details;
-
-    }
-
-
-    /*
-       -------------------------------------------------------
-       CASE 4
-       Whole response
-       -------------------------------------------------------
-    */
-
-    else if (response) {
-
-        console.log(
-            "Using complete response object"
-        );
-
-        data =
-            response;
-
-    }
-
-
-    /*
-       -------------------------------------------------------
-       NO DATA
-       -------------------------------------------------------
-    */
-
-    if (
-        data === null ||
-        data === undefined
-    ) {
+    if (!found) {
 
         showProcessingError(
-            "No valid data received from Python function.",
+            "Python function response received, but the HTML table was not found.",
             response
         );
 
@@ -723,139 +844,41 @@ function processResponse(response) {
     }
 
 
-    console.log(
-        "RAW RESULT:",
-        data
-    );
-
-    console.log(
-        "RAW RESULT TYPE:",
-        typeof data
-    );
-
-
     /*
        -------------------------------------------------------
-       PARSE STRING JSON
+       GET DATA
        -------------------------------------------------------
     */
 
-    if (
-        typeof data === "string"
-    ) {
-
-        try {
-
-            data =
-                JSON.parse(data);
-
-            console.log(
-                "Parsed string JSON successfully:",
-                data
-            );
-
-        }
-
-        catch (e) {
-
-            console.error(
-                "JSON parse failed:",
-                e
-            );
-
-            showProcessingError(
-                "Python function returned text, but it is not valid JSON.",
-                data
-            );
-
-            return;
-
-        }
-
-    }
+    var data =
+        found.data;
 
 
     /*
-       -------------------------------------------------------
-       HANDLE NESTED OUTPUT
-       -------------------------------------------------------
+       If the finder returned direct HTML
     */
 
     if (
-        data &&
-        typeof data === "object"
+        found.table
     ) {
 
-        /*
-           Sometimes output can itself contain
-           another output property.
-        */
-
-        if (
-            data.output !== undefined &&
-            data.output !== null
-        ) {
-
-            console.log(
-                "Nested output detected."
-            );
-
-            if (
-                typeof data.output === "string"
-            ) {
-
-                try {
-
-                    var nestedData =
-                        JSON.parse(
-                            data.output
-                        );
-
-                    if (
-                        nestedData &&
-                        typeof nestedData === "object"
-                    ) {
-
-                        data =
-                            nestedData;
-
-                    }
-
-                }
-
-                catch (e) {
-
-                    console.log(
-                        "Nested output is not JSON."
-                    );
-
-                }
-
-            }
-
-            else if (
-                typeof data.output === "object"
-            ) {
-
-                data =
-                    data.output;
-
-            }
-
-        }
+        data = {
+            table: found.table
+        };
 
     }
 
 
     console.log(
-        "FINAL RESULT:",
-        data
+        "FINAL PYTHON DATA:"
     );
+
+    console.log(data);
 
 
     /*
        -------------------------------------------------------
-       CHECK PYTHON STATUS
+       STATUS CHECK
        -------------------------------------------------------
     */
 
@@ -876,42 +899,18 @@ function processResponse(response) {
 
     /*
        -------------------------------------------------------
-       VALIDATE TABLE
+       TABLE CHECK
        -------------------------------------------------------
     */
 
     if (
         !data ||
-        typeof data !== "object"
+        typeof data.table !== "string" ||
+        data.table.length === 0
     ) {
 
         showProcessingError(
-            "No valid data object received from Python function.",
-            data
-        );
-
-        return;
-
-    }
-
-
-    if (
-        !data.table ||
-        typeof data.table !== "string"
-    ) {
-
-        console.error(
-            "TABLE NOT FOUND"
-        );
-
-        console.error(
-            "Available response keys:",
-            Object.keys(data)
-        );
-
-
-        showProcessingError(
-            "Python function response received, but the HTML table was not found.",
+            "Python function output was found, but the HTML table is empty.",
             data
         );
 
@@ -922,14 +921,9 @@ function processResponse(response) {
 
     /*
        -------------------------------------------------------
-       DISPLAY REPORT
+       DISPLAY
        -------------------------------------------------------
     */
-
-    console.log(
-        "DISPLAYING REPORT"
-    );
-
 
     displayReport(data);
 
@@ -942,25 +936,17 @@ function processResponse(response) {
 
 function displayReport(data) {
 
-    console.log(
-        "======================================"
-    );
+    console.log("======================================");
+    console.log("DISPLAY REPORT");
+    console.log("======================================");
 
-    console.log(
-        "DISPLAY REPORT"
-    );
-
-    console.log(
-        data
-    );
-
-    console.log(
-        "======================================"
-    );
+    console.log(data);
 
 
     /*
-       Total Accounts
+       -------------------------------------------------------
+       TOTAL ACCOUNTS
+       -------------------------------------------------------
     */
 
     document.getElementById(
@@ -973,7 +959,11 @@ function displayReport(data) {
 
 
     /*
-       Accounts With Deal
+       -------------------------------------------------------
+       ACCOUNTS WITH DEAL
+       Python field:
+       unique_accounts_with_deal
+       -------------------------------------------------------
     */
 
     document.getElementById(
@@ -981,25 +971,46 @@ function displayReport(data) {
     ).innerText =
 
         formatNumber(
-            data.accounts_with_deals
+            data.unique_accounts_with_deal
         );
 
 
     /*
-       Accounts Without Deal
+       -------------------------------------------------------
+       ACCOUNTS WITHOUT DEAL
+       -------------------------------------------------------
     */
+
+    var totalAccounts =
+        Number(
+            data.total_accounts || 0
+        );
+
+    var accountsWithDeal =
+        Number(
+            data.unique_accounts_with_deal || 0
+        );
+
+    var accountsWithoutDeal =
+        totalAccounts -
+        accountsWithDeal;
+
 
     document.getElementById(
         "accountsWithoutDeals"
     ).innerText =
 
         formatNumber(
-            data.accounts_without_deals
+            accountsWithoutDeal
         );
 
 
     /*
-       Touched Accounts
+       -------------------------------------------------------
+       TOUCHED ACCOUNTS
+       Python field:
+       accounts_with_owner_calls
+       -------------------------------------------------------
     */
 
     document.getElementById(
@@ -1007,12 +1018,14 @@ function displayReport(data) {
     ).innerText =
 
         formatNumber(
-            data.touched_accounts
+            data.accounts_with_owner_calls
         );
 
 
     /*
+       -------------------------------------------------------
        HTML TABLE
+       -------------------------------------------------------
     */
 
     document.getElementById(
@@ -1033,7 +1046,9 @@ function displayReport(data) {
 
 
     /*
-       Last Updated
+       -------------------------------------------------------
+       LAST UPDATED
+       -------------------------------------------------------
     */
 
     var now =
@@ -1045,7 +1060,9 @@ function displayReport(data) {
     ).innerText =
 
         "Last Updated: " +
-        now.toLocaleString();
+        now.toLocaleString(
+            "en-IN"
+        );
 
 
     console.log(
