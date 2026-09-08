@@ -224,6 +224,79 @@
             font-size: 13px;
         }
 
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-box {
+            background: #ffffff;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 16px;
+            color: #1f2937;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #6b7280;
+            line-height: 1;
+        }
+
+        .modal-body {
+            padding: 12px 20px;
+            overflow-y: auto;
+        }
+
+        .modal-body ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .modal-body li {
+            padding: 4px 0;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        .modal-empty {
+            color: #6b7280;
+            font-size: 13px;
+            padding: 10px 0;
+        }
+
         @media (max-width: 900px) {
             .summary-cards {
                 grid-template-columns: repeat(2, 1fr);
@@ -355,6 +428,25 @@
                 Loading report...
             </div>
 
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- DRILL-DOWN MODAL -->
+<div class="modal-overlay" id="drilldownModal">
+
+    <div class="modal-box">
+
+        <div class="modal-header">
+            <h3 id="drilldownTitle">Accounts</h3>
+            <button class="modal-close" onclick="closeDrilldown()">&times;</button>
+        </div>
+
+        <div class="modal-body" id="drilldownBody">
+            Loading...
         </div>
 
     </div>
@@ -1003,6 +1095,7 @@ function displayReport(data) {
     */
 
     populateOwnerFilter();
+    attachDrilldownHandlers();
 
     document.getElementById("ownerFilter").value = "";
 
@@ -1034,6 +1127,166 @@ function displayReport(data) {
 /* =========================================================
    OWNER FILTER
    ========================================================= */
+
+/* =========================================================
+   DRILL-DOWN
+   ========================================================= */
+
+var drilldownLabels = {
+    "total": "Total Accounts",
+    "last_30": "Touched in Last 30 Days",
+    "days_31_60": "Touched 31-60 Days Ago",
+    "days_60_plus": "Touched 60+ Days Ago",
+    "touched": "Touched Accounts",
+    "non_touched": "Non-Touched Accounts",
+    "with_deal": "Accounts With Deal",
+    "no_deal": "Accounts Without Deal"
+};
+
+function attachDrilldownHandlers() {
+
+    var cells = document.querySelectorAll(".report-table td.drillable");
+
+    cells.forEach(function(cell) {
+
+        cell.onclick = function() {
+
+            var count = parseInt(cell.innerText, 10) || 0;
+
+            if (count === 0) {
+                return; // nothing to show
+            }
+
+            var row = cell.closest("tr");
+            var ownerCell = row ? row.querySelector("td.owner") : null;
+
+            var ownerId = ownerCell ? ownerCell.getAttribute("data-owner-id") : null;
+            var ownerName = ownerCell ? ownerCell.innerText.trim() : "";
+            var category = cell.getAttribute("data-cat");
+
+            if (!ownerId) {
+                return; // owner has no id on record, can't drill down
+            }
+
+            openDrilldown(ownerId, ownerName, category);
+        };
+
+    });
+
+}
+
+
+function categoryLabel(category) {
+
+    if (category.indexOf("stage:") === 0) {
+        return category.substring(6) + " Deals";
+    }
+
+    return drilldownLabels[category] || category;
+
+}
+
+
+function openDrilldown(ownerId, ownerName, category) {
+
+    var modal = document.getElementById("drilldownModal");
+    var title = document.getElementById("drilldownTitle");
+    var body = document.getElementById("drilldownBody");
+
+    title.innerText = ownerName + " - " + categoryLabel(category);
+    body.innerHTML = "Loading...";
+
+    modal.classList.add("open");
+
+    var req_data = {
+        "arguments": JSON.stringify({
+            "owner_id": ownerId,
+            "category": category
+        })
+    };
+
+    ZOHO.CRM.FUNCTIONS.execute(
+
+        "account_owner_report_drilldown",
+
+        req_data
+
+    )
+
+    .then(function(response) {
+
+        var data = null;
+
+        try {
+
+            var raw = response;
+
+            if (raw && raw.details && raw.details.output) {
+                raw = raw.details.output;
+            }
+
+            if (typeof raw === "string") {
+                data = JSON.parse(raw);
+            } else {
+                data = raw;
+            }
+
+        } catch (e) {
+
+            body.innerHTML =
+                '<div class="modal-empty">Could not parse response.</div>';
+            return;
+
+        }
+
+        if (!data || data.status === "error") {
+
+            body.innerHTML =
+                '<div class="modal-empty">' +
+                escapeHtml((data && data.message) || "Something went wrong.") +
+                '</div>';
+            return;
+
+        }
+
+        var accounts = data.accounts || [];
+
+        if (accounts.length === 0) {
+
+            body.innerHTML =
+                '<div class="modal-empty">No matching accounts found.</div>';
+            return;
+
+        }
+
+        var listHtml = "<ul>";
+
+        accounts.forEach(function(name) {
+            listHtml += "<li>" + escapeHtml(name) + "</li>";
+        });
+
+        listHtml += "</ul>";
+
+        body.innerHTML = listHtml;
+
+    })
+
+    .catch(function(error) {
+
+        body.innerHTML =
+            '<div class="modal-empty">Failed to load accounts.</div>';
+
+        console.error("Drilldown error:", error);
+
+    });
+
+}
+
+
+function closeDrilldown() {
+    document.getElementById("drilldownModal").classList.remove("open");
+}
+
 
 function populateOwnerFilter() {
 
