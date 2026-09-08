@@ -110,12 +110,29 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .report-header h2 {
             margin: 0;
             font-size: 20px;
             color: #1f2937;
+        }
+
+        .report-header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #ownerFilter {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            font-size: 13px;
+            background: #ffffff;
+            min-width: 160px;
         }
 
         .last-updated {
@@ -315,10 +332,18 @@
                 Account Owner Summary
             </h2>
 
-            <div
-                class="last-updated"
-                id="lastUpdated">
-                Last Updated: -
+            <div class="report-header-controls">
+
+                <select id="ownerFilter" onchange="filterByOwner()">
+                    <option value="">All Owners</option>
+                </select>
+
+                <div
+                    class="last-updated"
+                    id="lastUpdated">
+                    Last Updated: -
+                </div>
+
             </div>
 
         </div>
@@ -338,6 +363,13 @@
 
 
 <script>
+
+/* =========================================================
+   STATE
+   ========================================================= */
+
+var lastReportData = null;
+
 
 /* =========================================================
    ZOHO PAGE LOAD
@@ -414,7 +446,7 @@ function loadReport() {
     );
 
     console.log(
-        "Function API Name:account_activity_test"
+        "Function API Name: account_owner_report_reader"
     );
 
     console.log(
@@ -441,12 +473,13 @@ function loadReport() {
 
 
     /*
-       Execute Standalone Python Function
+       Execute the lightweight reader function
+       (reads the cache written by the scheduled writer function)
     */
 
     ZOHO.CRM.FUNCTIONS.execute(
 
-        "account_activity_test",
+        "account_owner_report_reader",
 
         req_data
 
@@ -472,13 +505,6 @@ function loadReport() {
                 response
             );
 
-
-            /*
-               VERY IMPORTANT:
-               Print complete response as JSON
-               so we can identify the exact
-               Zoho response structure.
-            */
 
             try {
 
@@ -627,18 +653,9 @@ function processResponse(response) {
         }
 
 
-        /*
-           If this is a string, check whether it
-           contains our Python JSON output.
-        */
-
         if (typeof obj === "string") {
 
             var text = obj.trim();
-
-            /*
-               Direct JSON string
-            */
 
             try {
 
@@ -662,10 +679,6 @@ function processResponse(response) {
             }
 
 
-            /*
-               Direct HTML table
-            */
-
             if (
                 text.indexOf("<table") !== -1 ||
                 text.indexOf("report-table") !== -1
@@ -683,18 +696,9 @@ function processResponse(response) {
         }
 
 
-        /*
-           Object
-        */
-
         if (
             typeof obj === "object"
         ) {
-
-            /*
-               FIRST PRIORITY:
-               Look for "table"
-            */
 
             if (
                 typeof obj.table === "string" &&
@@ -708,10 +712,6 @@ function processResponse(response) {
 
             }
 
-
-            /*
-               Check known Zoho locations first
-            */
 
             var priorityKeys = [
                 "output",
@@ -753,10 +753,6 @@ function processResponse(response) {
             }
 
 
-            /*
-               Finally search every property
-            */
-
             var keys =
                 Object.keys(obj);
 
@@ -770,10 +766,6 @@ function processResponse(response) {
                 var currentKey =
                     keys[j];
 
-
-                /*
-                   Skip keys already checked
-                */
 
                 if (
                     priorityKeys.indexOf(
@@ -805,12 +797,6 @@ function processResponse(response) {
     }
 
 
-    /*
-       -------------------------------------------------------
-       SEARCH FOR PYTHON OUTPUT
-       -------------------------------------------------------
-    */
-
     var found =
         findPythonOutput(
             response,
@@ -826,12 +812,6 @@ function processResponse(response) {
     console.log(found);
 
 
-    /*
-       -------------------------------------------------------
-       NOTHING FOUND
-       -------------------------------------------------------
-    */
-
     if (!found) {
 
         showProcessingError(
@@ -844,19 +824,9 @@ function processResponse(response) {
     }
 
 
-    /*
-       -------------------------------------------------------
-       GET DATA
-       -------------------------------------------------------
-    */
-
     var data =
         found.data;
 
-
-    /*
-       If the finder returned direct HTML
-    */
 
     if (
         found.table
@@ -876,12 +846,6 @@ function processResponse(response) {
     console.log(data);
 
 
-    /*
-       -------------------------------------------------------
-       STATUS CHECK
-       -------------------------------------------------------
-    */
-
     if (
         data &&
         data.status === "error"
@@ -896,12 +860,6 @@ function processResponse(response) {
 
     }
 
-
-    /*
-       -------------------------------------------------------
-       TABLE CHECK
-       -------------------------------------------------------
-    */
 
     if (
         !data ||
@@ -919,12 +877,6 @@ function processResponse(response) {
     }
 
 
-    /*
-       -------------------------------------------------------
-       DISPLAY
-       -------------------------------------------------------
-    */
-
     displayReport(data);
 
 }
@@ -941,6 +893,9 @@ function displayReport(data) {
     console.log("======================================");
 
     console.log(data);
+
+
+    lastReportData = data;
 
 
     /*
@@ -961,8 +916,6 @@ function displayReport(data) {
     /*
        -------------------------------------------------------
        ACCOUNTS WITH DEAL
-       Python field:
-       unique_accounts_with_deal
        -------------------------------------------------------
     */
 
@@ -1008,8 +961,6 @@ function displayReport(data) {
     /*
        -------------------------------------------------------
        TOUCHED ACCOUNTS
-       Python field:
-       accounts_with_owner_calls
        -------------------------------------------------------
     */
 
@@ -1047,27 +998,156 @@ function displayReport(data) {
 
     /*
        -------------------------------------------------------
+       OWNER FILTER DROPDOWN
+       -------------------------------------------------------
+    */
+
+    populateOwnerFilter();
+
+    document.getElementById("ownerFilter").value = "";
+
+
+    /*
+       -------------------------------------------------------
        LAST UPDATED
        -------------------------------------------------------
     */
 
-    var now =
-        new Date();
-
+    var updatedLabel = data.generated_time
+        ? data.generated_time
+        : new Date().toLocaleString("en-IN");
 
     document.getElementById(
         "lastUpdated"
     ).innerText =
 
-        "Last Updated: " +
-        now.toLocaleString(
-            "en-IN"
-        );
+        "Last Updated: " + updatedLabel;
 
 
     console.log(
         "REPORT DISPLAYED SUCCESSFULLY"
     );
+
+}
+
+
+/* =========================================================
+   OWNER FILTER
+   ========================================================= */
+
+function populateOwnerFilter() {
+
+    var select = document.getElementById("ownerFilter");
+
+    select.innerHTML = '<option value="">All Owners</option>';
+
+    var ownerCells = document.querySelectorAll(
+        ".report-table tbody tr:not(.grand-total) td.owner"
+    );
+
+    ownerCells.forEach(function(cell) {
+
+        var name = cell.innerText.trim();
+
+        var option = document.createElement("option");
+        option.value = name;
+        option.innerText = name;
+
+        select.appendChild(option);
+
+    });
+
+}
+
+
+function filterByOwner() {
+
+    var selected = document.getElementById("ownerFilter").value;
+
+    var rows = document.querySelectorAll(".report-table tbody tr");
+
+    rows.forEach(function(row) {
+
+        var isGrandTotal = row.classList.contains("grand-total");
+        var ownerCell = row.querySelector("td.owner");
+        var ownerName = ownerCell ? ownerCell.innerText.trim() : "";
+
+        if (!selected) {
+
+            row.style.display = "";
+
+        } else if (isGrandTotal) {
+
+            row.style.display = "none";
+
+        } else {
+
+            row.style.display = (ownerName === selected) ? "" : "none";
+
+        }
+
+    });
+
+
+    if (!selected) {
+
+        if (lastReportData) {
+
+            document.getElementById("totalAccounts").innerText =
+                formatNumber(lastReportData.total_accounts);
+
+            document.getElementById("accountsWithDeals").innerText =
+                formatNumber(lastReportData.unique_accounts_with_deal);
+
+            document.getElementById("accountsWithoutDeals").innerText =
+                formatNumber(
+                    Number(lastReportData.total_accounts || 0) -
+                    Number(lastReportData.unique_accounts_with_deal || 0)
+                );
+
+            document.getElementById("touchedAccounts").innerText =
+                formatNumber(lastReportData.accounts_with_owner_calls);
+
+        }
+
+        return;
+
+    }
+
+
+    var targetRow = Array.from(
+        document.querySelectorAll(".report-table tbody tr")
+    ).find(function(row) {
+
+        var cell = row.querySelector("td.owner");
+        return cell && cell.innerText.trim() === selected;
+
+    });
+
+
+    if (targetRow) {
+
+        var cells = targetRow.cells;
+
+        // Column order: Owner(0), Total(1), Last30(2), 31-60(3), 60+(4),
+        // Touched(5), Non-Touched(6), With Deal(7), No Deal(8), ...stages
+        var total = Number(cells[1].innerText) || 0;
+        var touched = Number(cells[5].innerText) || 0;
+        var withDeal = Number(cells[7].innerText) || 0;
+
+        document.getElementById("totalAccounts").innerText =
+            formatNumber(total);
+
+        document.getElementById("accountsWithDeals").innerText =
+            formatNumber(withDeal);
+
+        document.getElementById("accountsWithoutDeals").innerText =
+            formatNumber(total - withDeal);
+
+        document.getElementById("touchedAccounts").innerText =
+            formatNumber(touched);
+
+    }
 
 }
 
