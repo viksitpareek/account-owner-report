@@ -1198,87 +1198,243 @@ function openDrilldown(ownerId, ownerName, category) {
 
     modal.classList.add("open");
 
-    var req_data = {
-        "arguments": JSON.stringify({
-            "owner_id": ownerId,
-            "category": category
+    runDrilldownClientSide(ownerId, category)
+
+        .then(function(accounts) {
+
+            if (accounts.length === 0) {
+                body.innerHTML =
+                    '<div class="modal-empty">No matching accounts found.</div>';
+                return;
+            }
+
+            var listHtml = '<ul style="list-style:none;padding:0;">';
+            accounts.forEach(function(account) {
+                listHtml +=
+                    '<li class="drilldown-account-link" data-account-id="' +
+                    escapeHtml(account.id) + '" style="padding:6px 0;color:#1a73e8;cursor:pointer;">' +
+                    escapeHtml(account.name) +
+                    '</li>';
+            });
+            listHtml += "</ul>";
+
+            body.innerHTML = listHtml;
+
+            body.querySelectorAll(".drilldown-account-link").forEach(function(el) {
+                el.onclick = function() {
+                    ZOHO.CRM.UI.Record.open({
+                        Entity: "Accounts",
+                        RecordID: el.getAttribute("data-account-id")
+                    });
+                };
+            });
+
         })
-    };
 
-    ZOHO.CRM.FUNCTIONS.execute(
-
-        "account_owner_report_drilldown",
-
-        req_data
-
-    )
-
-    .then(function(response) {
-
-        var data = null;
-
-        try {
-
-            var raw = response;
-
-            if (raw && raw.details && raw.details.output) {
-                raw = raw.details.output;
-            }
-
-            if (typeof raw === "string") {
-                data = JSON.parse(raw);
-            } else {
-                data = raw;
-            }
-
-        } catch (e) {
+        .catch(function(error) {
 
             body.innerHTML =
-                '<div class="modal-empty">Could not parse response.</div>';
-            return;
+                '<div class="modal-empty">Failed to load accounts.</div>';
 
-        }
+            console.error("Drilldown error:", error);
 
-        if (!data || data.status === "error") {
-
-            body.innerHTML =
-                '<div class="modal-empty">' +
-                escapeHtml((data && data.message) || "Something went wrong.") +
-                '</div>';
-            return;
-
-        }
-
-        var accounts = data.accounts || [];
-
-        if (accounts.length === 0) {
-
-            body.innerHTML =
-                '<div class="modal-empty">No matching accounts found.</div>';
-            return;
-
-        }
-
-        var listHtml = "<ul>";
-
-        accounts.forEach(function(name) {
-            listHtml += "<li>" + escapeHtml(name) + "</li>";
         });
 
-        listHtml += "</ul>";
+}
 
-        body.innerHTML = listHtml;
 
-    })
+/* =========================================================
+   CLIENT-SIDE DRILLDOWN (no Python function needed)
 
-    .catch(function(error) {
+   Runs the same accounts -> calls -> deals -> categorize logic
+   as the drilldown Python function, but directly from the widget
+   using ZOHO.CRM.API.searchRecord. Scoped to one owner's accounts,
+   so this stays fast even though it's client-side.
+   ========================================================= */
 
-        body.innerHTML =
-            '<div class="modal-empty">Failed to load accounts.</div>';
+function zohoSearchAll(module, criteria) {
 
-        console.error("Drilldown error:", error);
+    // Paginated fetch using the confirmed-working page/per_page
+    // style, rather than page_token - no 10-second constraint here
+    // since this runs in the browser, not a serverless function.
+
+    return new Promise(function(resolve) {
+
+        var allRecords = [];
+        var page = 1;
+
+        function fetchPage() {
+
+            var searchPromise = criteria
+                ? ZOHO.CRM.API.searchRecord({
+                    Entity: module,
+                    Type: "criteria",
+                    Query: criteria,
+                    page: page,
+                    per_page: 200
+                })
+                : ZOHO.CRM.API.getAllRecords({
+                    Entity: module,
+                    sort_order: "asc",
+                    page: page,
+                    per_page: 200
+                });
+
+            searchPromise
+                .then(function(response) {
+
+                    if (response && response.data) {
+                        allRecords = allRecords.concat(response.data);
+                    }
+
+                    if (response && response.info && response.info.more_records === true && page < 100) {
+                        page++;
+                        fetchPage();
+                    } else {
+                        resolve(allRecords);
+                    }
+                })
+                .catch(function() {
+                    // searchRecord rejects on zero matches - treat as end of results
+                    resolve(allRecords);
+                });
+        }
+
+        fetchPage();
+    });
+}
+
+
+function lookupId(value) {
+    if (value && typeof value === "object") {
+        return String(value.id || "");
+    }
+    return String(value || "");
+}
+
+
+function parseDateSafe(value) {
+    if (!value) return null;
+    var d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+
+async function runDrilldownClientSide(ownerId, category) {
+
+    // ------------------------------------------------------------
+    // Accounts owned by this owner
+    // ------------------------------------------------------------
+
+    var accounts = await zohoSearchAll(
+        "Accounts",
+        "(Owner:equals:" + ownerId + ")"
+    );
+
+    var accountById = {};
+    accounts.forEach(function(a) {
+        if (a.id) {
+            accountById[String(a.id)] = { id: String(a.id), name: a.Account_Name || "" };
+        }
+    });
+
+    var accountIds = Object.keys(accountById);
+
+    if (accountIds.length === 0) {
+        return [];
+    }
+
+    // ------------------------------------------------------------
+    // Calls made by this owner
+    // ------------------------------------------------------------
+
+    var calls = await zohoSearchAll(
+        "Calls",
+        "(Owner:equals:" + ownerId + ")"
+    );
+
+    var latestCallByAccount = {};
+
+    calls.forEach(function(call) {
+        var whatId = lookupId(call.What_Id);
+        if (!whatId || !accountById[whatId]) return;
+
+        var callDate = parseDateSafe(call.Call_Start_Time);
+        if (!callDate) return;
+
+        if (!latestCallByAccount[whatId] || callDate > latestCallByAccount[whatId]) {
+            latestCallByAccount[whatId] = callDate;
+        }
+    });
+
+    // ------------------------------------------------------------
+    // Deals - fetch ALL org deals (matches the writer's own logic,
+    // which links via Account_Name regardless of deal owner), then
+    // filter client-side to this owner's accounts. No batching
+    // needed - browser JS has no 10-second execution limit.
+    // ------------------------------------------------------------
+
+    var allDeals = await zohoSearchAll("Deals", null);
+
+    var latestDealByAccount = {};
+
+    allDeals.forEach(function(deal) {
+
+        var accId = lookupId(deal.Account_Name);
+        if (!accId || !accountById[accId]) return;
+
+        var dealDate = parseDateSafe(deal.Modified_Time) || parseDateSafe(deal.Created_Time);
+        if (!dealDate) return;
+
+        var existing = latestDealByAccount[accId];
+        if (!existing || dealDate > existing.date) {
+            latestDealByAccount[accId] = { date: dealDate, stage: deal.Stage || "Unknown" };
+        }
+    });
+
+    // ------------------------------------------------------------
+    // Categorize
+    // ------------------------------------------------------------
+
+    var now = new Date();
+    var matches = [];
+
+    accountIds.forEach(function(accId) {
+
+        var account = accountById[accId];
+        var latestCall = latestCallByAccount[accId];
+        var latestDeal = latestDealByAccount[accId];
+
+        var touched = !!latestCall;
+        var agingBucket = null;
+
+        if (touched) {
+            var daysOld = (now - latestCall) / 86400000;
+            if (daysOld <= 30) agingBucket = "last_30";
+            else if (daysOld <= 60) agingBucket = "days_31_60";
+            else agingBucket = "days_60_plus";
+        }
+
+        var withDeal = !!latestDeal;
+        var stage = latestDeal ? latestDeal.stage : null;
+
+        var isMatch = false;
+
+        if (category === "total") isMatch = true;
+        else if (category === "touched") isMatch = touched;
+        else if (category === "non_touched") isMatch = !touched;
+        else if (["last_30", "days_31_60", "days_60_plus"].indexOf(category) !== -1) isMatch = (agingBucket === category);
+        else if (category === "with_deal") isMatch = withDeal;
+        else if (category === "no_deal") isMatch = !withDeal;
+        else if (category.indexOf("stage:") === 0) isMatch = withDeal && stage === category.substring(6);
+
+        if (isMatch) matches.push({ id: account.id, name: account.name });
 
     });
+
+    matches.sort(function(a, b) { return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
+
+    return matches;
 
 }
 
