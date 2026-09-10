@@ -135,6 +135,32 @@
             min-width: 160px;
         }
 
+        .fy-toggle {
+            display: flex;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .fy-toggle-btn {
+            padding: 6px 12px;
+            border: none;
+            background: #ffffff;
+            font-size: 13px;
+            cursor: pointer;
+            color: #374151;
+        }
+
+        .fy-toggle-btn + .fy-toggle-btn {
+            border-left: 1px solid #d1d5db;
+        }
+
+        .fy-toggle-btn.active {
+            background: #2563eb;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
         .last-updated {
             font-size: 12px;
             color: #6b7280;
@@ -176,7 +202,6 @@
             top: 0;
             z-index: 3;
             background: #dbeafe;
-            color: #666666;
         }
 
         thead tr:nth-child(2) th {
@@ -184,11 +209,10 @@
             top: 38px;
             z-index: 2;
             background: #eff6ff;
-            color: #666666;
         }
 
         tbody tr:nth-child(even) {
-            background: #3d4d5c;
+            background: #f9fafb;
         }
 
         tbody tr:hover {
@@ -322,6 +346,71 @@
                 padding: 10px;
             }
         }
+
+        /* ---------------------------------------------------------
+           Report table styling - this used to travel bundled inside
+           the writer's generated HTML (which had its own <style>
+           block). Now that the widget builds the table itself from
+           JSON, these rules need to live here instead.
+           --------------------------------------------------------- */
+
+        .report-table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 1200px;
+            font-size: 13px;
+        }
+
+        .report-table th {
+            background: #1f4e78 !important;
+            color: white !important;
+            padding: 9px 8px;
+            border: 1px solid #d0d7de;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .report-table td {
+            padding: 8px;
+            border: 1px solid #d0d7de;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .report-table td.owner {
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .report-table tr:nth-child(even) {
+            background: #f7f9fb;
+        }
+
+        .report-table tr:hover {
+            background: #eef5fb;
+        }
+
+        .report-table .grand-total {
+            background: #d9eaf7 !important;
+            font-weight: 700;
+        }
+
+        .report-table .section-header {
+            background: #5b9bd5 !important;
+        }
+
+        .report-table td.drillable {
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-decoration-color: #93c5fd;
+            color: #1d4ed8;
+            background: #ffffff;
+        }
+
+        .report-table td.drillable:hover {
+            background: #dbeafe;
+        }
     </style>
 </head>
 
@@ -409,6 +498,11 @@
 
             <div class="report-header-controls">
 
+                <div class="fy-toggle">
+                    <button id="fyFilteredBtn" class="fy-toggle-btn active" onclick="setFyMode('fy')">FY 2026-27</button>
+                    <button id="fyAllBtn" class="fy-toggle-btn" onclick="setFyMode('all')">All FY</button>
+                </div>
+
                 <select id="ownerFilter" onchange="filterByOwner()">
                     <option value="">All Owners</option>
                 </select>
@@ -462,9 +556,9 @@
    CONFIGURATION
    ========================================================= */
 
-var FILTER_DEALS_BY_YEAR = true;
 var DEAL_YEAR_FIELD = "Year2";
 var DEAL_YEAR_FILTER = "2026-2027";
+var currentFyMode = "fy"; // "fy" or "all" - which deal variant is shown
 
 
 /* =========================================================
@@ -782,19 +876,8 @@ function processResponse(response) {
             }
 
 
-            if (
-                text.indexOf("<table") !== -1 ||
-                text.indexOf("report-table") !== -1
-            ) {
-
-                return {
-                    table: text,
-                    source: path
-                };
-
-            }
-
-
+            // No longer looking for HTML table text - the payload is
+            // now structured JSON with an "owners" array.
             return null;
         }
 
@@ -804,13 +887,12 @@ function processResponse(response) {
         ) {
 
             if (
-                typeof obj.table === "string" &&
-                obj.table.length > 0
+                Array.isArray(obj.owners)
             ) {
 
                 return {
                     data: obj,
-                    source: path + ".table"
+                    source: path + ".owners"
                 };
 
             }
@@ -931,17 +1013,6 @@ function processResponse(response) {
         found.data;
 
 
-    if (
-        found.table
-    ) {
-
-        data = {
-            table: found.table
-        };
-
-    }
-
-
     console.log(
         "FINAL PYTHON DATA:"
     );
@@ -966,12 +1037,11 @@ function processResponse(response) {
 
     if (
         !data ||
-        typeof data.table !== "string" ||
-        data.table.length === 0
+        !Array.isArray(data.owners)
     ) {
 
         showProcessingError(
-            "Python function output was found, but the HTML table is empty.",
+            "Python function output was found, but no owner data was present.",
             data
         );
 
@@ -1001,136 +1071,159 @@ function displayReport(data) {
     lastReportData = data;
 
 
-    /*
-       -------------------------------------------------------
-       TOTAL ACCOUNTS
-       -------------------------------------------------------
-    */
-
-    document.getElementById(
-        "totalAccounts"
-    ).innerText =
-
-        formatNumber(
-            data.total_accounts
-        );
+    document.getElementById("report").innerHTML =
+        '<div class="success">Report loaded successfully.</div>' +
+        '<div class="table-wrapper" id="tableWrapper"></div>';
 
 
-    /*
-       -------------------------------------------------------
-       ACCOUNTS WITH DEAL
-       -------------------------------------------------------
-    */
+    renderReport();
 
-    document.getElementById(
-        "accountsWithDeals"
-    ).innerText =
-
-        formatNumber(
-            data.unique_accounts_with_deal
-        );
-
-
-    /*
-       -------------------------------------------------------
-       ACCOUNTS WITHOUT DEAL
-       -------------------------------------------------------
-    */
-
-    var totalAccounts =
-        Number(
-            data.total_accounts || 0
-        );
-
-    var accountsWithDeal =
-        Number(
-            data.unique_accounts_with_deal || 0
-        );
-
-    var accountsWithoutDeal =
-        totalAccounts -
-        accountsWithDeal;
-
-
-    document.getElementById(
-        "accountsWithoutDeals"
-    ).innerText =
-
-        formatNumber(
-            accountsWithoutDeal
-        );
-
-
-    /*
-       -------------------------------------------------------
-       TOUCHED ACCOUNTS
-       -------------------------------------------------------
-    */
-
-    document.getElementById(
-        "touchedAccounts"
-    ).innerText =
-
-        formatNumber(
-            data.accounts_with_owner_calls
-        );
-
-
-    /*
-       -------------------------------------------------------
-       HTML TABLE
-       -------------------------------------------------------
-    */
-
-    document.getElementById(
-        "report"
-    ).innerHTML =
-
-        '<div class="success">' +
-
-        'Report loaded successfully.' +
-
-        '</div>' +
-
-        '<div class="table-wrapper">' +
-
-        data.table +
-
-        '</div>';
-
-
-    /*
-       -------------------------------------------------------
-       OWNER FILTER DROPDOWN
-       -------------------------------------------------------
-    */
-
-    populateOwnerFilter();
-    attachDrilldownHandlers();
-
-    document.getElementById("ownerFilter").value = "";
-
-
-    /*
-       -------------------------------------------------------
-       LAST UPDATED
-       -------------------------------------------------------
-    */
 
     var updatedLabel = data.generated_time
         ? data.generated_time
         : new Date().toLocaleString("en-IN");
 
-    document.getElementById(
-        "lastUpdated"
-    ).innerText =
-
+    document.getElementById("lastUpdated").innerText =
         "Last Updated: " + updatedLabel;
 
+    console.log("REPORT DISPLAYED SUCCESSFULLY");
 
-    console.log(
-        "REPORT DISPLAYED SUCCESSFULLY"
-    );
+}
+
+
+/* =========================================================
+   RENDER REPORT (summary cards + table) FROM CACHED JSON
+
+   Called on initial load AND whenever the FY toggle changes -
+   no re-fetch needed, since both deal-year variants are already
+   present in lastReportData.
+   ========================================================= */
+
+function renderReport() {
+
+    if (!lastReportData) {
+        return;
+    }
+
+    var data = lastReportData;
+    var dealKey = (currentFyMode === "fy") ? "deals_fy" : "deals_all";
+
+    // ---- Summary cards ----
+
+    var totalAccounts = Number(data.total_accounts || 0);
+
+    var accountsWithDeal = (currentFyMode === "fy")
+        ? Number(data.unique_accounts_with_deal_fy || 0)
+        : Number(data.unique_accounts_with_deal_all || 0);
+
+    document.getElementById("totalAccounts").innerText = formatNumber(totalAccounts);
+    document.getElementById("accountsWithDeals").innerText = formatNumber(accountsWithDeal);
+    document.getElementById("accountsWithoutDeals").innerText = formatNumber(totalAccounts - accountsWithDeal);
+    document.getElementById("touchedAccounts").innerText = formatNumber(data.accounts_with_owner_calls);
+
+    // ---- Table ----
+
+    var ownedStages = data.ordered_stages || [];
+
+    var html = '<table class="report-table">';
+
+    html += "<thead><tr>";
+    html += '<th rowspan="2">Account Owner</th>';
+    html += '<th rowspan="2">Total Accounts</th>';
+    html += '<th colspan="3" class="section-header">Activity Aging</th>';
+    html += '<th rowspan="2">Touched</th>';
+    html += '<th rowspan="2">Non-Touched</th>';
+    html += '<th rowspan="2">With Deal</th>';
+    html += '<th rowspan="2">No Deal</th>';
+
+    ownedStages.forEach(function(stage) {
+        html += '<th rowspan="2">' + escapeHtml(stage) + '</th>';
+    });
+
+    html += '</tr><tr>';
+    html += '<th>Last 30 Days</th><th>31-60 Days</th><th>60+ Days</th>';
+    html += '</tr></thead><tbody>';
+
+    function drillCell(count, category, ownerId) {
+        if (count && count > 0 && ownerId) {
+            return '<td class="drillable" data-cat="' + category + '">' + count + '</td>';
+        }
+        return '<td>' + count + '</td>';
+    }
+
+    (data.owners || []).forEach(function(owner) {
+
+        var deals = owner[dealKey] || { with_deal: 0, no_deal: 0, stages: {} };
+
+        html += '<tr>';
+        html += '<td class="owner" data-owner-id="' + escapeHtml(owner.owner_id || "") + '">' +
+            escapeHtml(owner.owner_name) + '</td>';
+        html += drillCell(owner.total_accounts, "total", owner.owner_id);
+        html += drillCell(owner.last_30, "last_30", owner.owner_id);
+        html += drillCell(owner.days_31_60, "days_31_60", owner.owner_id);
+        html += drillCell(owner.days_60_plus, "days_60_plus", owner.owner_id);
+        html += drillCell(owner.touched, "touched", owner.owner_id);
+        html += drillCell(owner.non_touched, "non_touched", owner.owner_id);
+        html += drillCell(deals.with_deal, "with_deal", owner.owner_id);
+        html += drillCell(deals.no_deal, "no_deal", owner.owner_id);
+
+        ownedStages.forEach(function(stage) {
+            var count = (deals.stages && deals.stages[stage]) || 0;
+            html += drillCell(count, "stage:" + stage, owner.owner_id);
+        });
+
+        html += '</tr>';
+    });
+
+    // ---- Grand total row ----
+
+    var grand = data.grand || {};
+    var grandDeals = grand[dealKey] || { with_deal: 0, no_deal: 0, stages: {} };
+
+    html += '<tr class="grand-total">';
+    html += '<td class="owner">Grand Total</td>';
+    html += '<td>' + (grand.total_accounts || 0) + '</td>';
+    html += '<td>' + (grand.last_30 || 0) + '</td>';
+    html += '<td>' + (grand.days_31_60 || 0) + '</td>';
+    html += '<td>' + (grand.days_60_plus || 0) + '</td>';
+    html += '<td>' + (grand.touched || 0) + '</td>';
+    html += '<td>' + (grand.non_touched || 0) + '</td>';
+    html += '<td>' + (grandDeals.with_deal || 0) + '</td>';
+    html += '<td>' + (grandDeals.no_deal || 0) + '</td>';
+
+    ownedStages.forEach(function(stage) {
+        var count = (grandDeals.stages && grandDeals.stages[stage]) || 0;
+        html += '<td>' + count + '</td>';
+    });
+
+    html += '</tr></tbody></table>';
+
+    document.getElementById("tableWrapper").innerHTML = html;
+
+    populateOwnerFilter();
+    attachDrilldownHandlers();
+
+    var ownerFilterEl = document.getElementById("ownerFilter");
+    if (ownerFilterEl) {
+        ownerFilterEl.value = "";
+    }
+
+}
+
+
+function setFyMode(mode) {
+
+    currentFyMode = mode;
+
+    var allBtn = document.getElementById("fyAllBtn");
+    var fyBtn = document.getElementById("fyFilteredBtn");
+
+    if (allBtn && fyBtn) {
+        allBtn.classList.toggle("active", mode === "all");
+        fyBtn.classList.toggle("active", mode === "fy");
+    }
+
+    renderReport();
 
 }
 
@@ -1204,7 +1297,9 @@ function openDrilldown(ownerId, ownerName, category) {
     var title = document.getElementById("drilldownTitle");
     var body = document.getElementById("drilldownBody");
 
-    title.innerText = ownerName + " - " + categoryLabel(category);
+    var isDealCategory = (category === "with_deal" || category === "no_deal" || category.indexOf("stage:") === 0);
+    var fyLabel = isDealCategory ? ((currentFyMode === "fy") ? " (FY " + DEAL_YEAR_FILTER + ")" : " (All FY)") : "";
+    title.innerText = ownerName + " - " + categoryLabel(category) + fyLabel;
     body.innerHTML = "Loading...";
 
     modal.classList.add("open");
@@ -1394,7 +1489,7 @@ async function runDrilldownClientSide(ownerId, category) {
         var accId = lookupId(deal.Account_Name);
         if (!accId || !accountById[accId]) return;
 
-        if (FILTER_DEALS_BY_YEAR) {
+        if (currentFyMode === "fy") {
             var dealYear = String(deal[DEAL_YEAR_FIELD] || "").trim();
             if (dealYear !== DEAL_YEAR_FILTER) return;
         }
