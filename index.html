@@ -457,6 +457,15 @@
 <script>
 
 /* =========================================================
+   CONFIGURATION
+   ========================================================= */
+
+var FILTER_DEALS_BY_YEAR = true;
+var DEAL_YEAR_FIELD = "Year2";
+var DEAL_YEAR_FILTER = "2026-2027";
+
+
+/* =========================================================
    STATE
    ========================================================= */
 
@@ -1382,6 +1391,11 @@ async function runDrilldownClientSide(ownerId, category) {
 
         var accId = lookupId(deal.Account_Name);
         if (!accId || !accountById[accId]) return;
+
+        if (FILTER_DEALS_BY_YEAR) {
+            var dealYear = String(deal[DEAL_YEAR_FIELD] || "").trim();
+            if (dealYear !== DEAL_YEAR_FILTER) return;
+        }
 
         var dealDate = parseDateSafe(deal.Modified_Time) || parseDateSafe(deal.Created_Time);
         if (!dealDate) return;
